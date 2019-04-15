@@ -5,11 +5,13 @@ import seaborn as sns; sns.set()
 from matplotlib import pyplot
 from importlib import import_module
 import json
+import sys
 
 class SEM:
     class __SEM:
         def __init__(self):
             self.robj = import_module('rpy2.robjects')
+            self.rinterface = import_module('rpy2.rinterface')
 
         def load_data(self, data_file):
             if data_file.endswith(".xlsx"):
@@ -91,15 +93,25 @@ class SEM:
 
             data <- read.csv(file="{}", header=TRUE, sep="\t")
             {}
-            {} <- sem({}, data, std.lv = TRUE, std.ov = TRUE,
+            {} = tryCatch(
+            {{
+              {} <- sem({}, data, std.lv = FALSE, std.ov = FALSE,
                         control = list(maxit = 100000),
                         estimator = "ULS",
                         meanstructure = TRUE,
                         optim.method = "BFGS",
                         verbose={})
-            '''.format(data_file, model, "fit_" + model_name, model_name, verbose)
+              c("OK")
+            }}, warning = function(w) {{
+              c("WARNING", w)
+            }}, error = function(e) {{
+              c("ERROR", e)
+            }}
+            )
+            '''.format(data_file, model, "result_" + model_name, "fit_" + model_name, model_name, verbose)
             self.robj.r(rscript)
-
+            result = self.robj.globalenv["result_" + model_name]
+            return result
         def evaluate(self, model_name):
             rscript = '''
             {} <- fitmeasures({}, c("npar", "chisq", "df", "cfi", "gfi", "rmsea", "srmr"))
@@ -139,6 +151,11 @@ if __name__ == "__main__":
 
     model = sem.build_model(model_description, "random_model")
     print(model)
-    sem.fit_model("../data/generated.csv", model, "random_model", verbose="TRUE")
-    metrics = sem.evaluate("random_model")
-    print(metrics)
+    result = sem.fit_model("../data/generated.csv", model, "random_model", verbose="FALSE")
+    if result[0] == "OK":
+        metrics = sem.evaluate("random_model")
+        print(metrics)
+    else:
+        print(result)
+        print(result[0][0])
+        print(result[1][0])
