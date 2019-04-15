@@ -8,12 +8,18 @@ import json
 import sys
 
 class SEM:
+    """
+    Singleton SEM class. It's an adapter to use the R lavaan package for `Structural Equation Modeling`.
+    """
     class __SEM:
         def __init__(self):
             self.robj = import_module('rpy2.robjects')
             self.rinterface = import_module('rpy2.rinterface')
 
         def load_data(self, data_file):
+            """
+            Loads data.
+            """
             if data_file.endswith(".xlsx"):
                 self.data_file = data_file
                 self.data = pd.read_excel(data_file)
@@ -25,6 +31,7 @@ class SEM:
 
         def build_model(self, model_description, model_name):
             """
+            Builds model from the model description.
             model_description : {factors : ..., observations : ..., kpis : ..., latent_connections : ...}
             """
 
@@ -44,13 +51,14 @@ class SEM:
             else:
                 factors_dict = {"factors" : model_description["factors"]}
                 model = "factors =~ "
-                factors = list(factors_dict.values())
+                factors = factors_dict["factors"]
                 for i in range(len(factors_dict)):
                     model += factors[i]
                     if i != len(factors_dict) - 1:
                         model += " + "
                     else:
                         model += "\n"
+                model_description["latent_connections"].append("factors", "cx", "~")
 
             observations = model_description["observations"]
             model += "cx =~ "
@@ -73,10 +81,10 @@ class SEM:
                             model += "\n"
             else:
                 kpis_dict = {"kpis" : model_description["kpis"]}
-                kpis = list(kpis_dict.values())
-                for i in range(len(kpis_dict)):
+                kpis = kpis_dict["kpis"]
+                for i in range(len(kpis)):
                     model += kpis[i]
-                    if i != len(kpis_dict) - 1:
+                    if i != len(kpis) - 1:
                         model += " + "
                     else:
                         model += " ~ cx\n"
@@ -162,7 +170,16 @@ if __name__ == "__main__":
                                 ("elde_tutma", "buyume", "~"), ("geri_kazanma", "cx", "~"), ("geri_kazanma", "elde_tutma", "~")]
     }
 
-    model = sem.build_model(model_description, "random_model")
+    model_description2 = {
+        "factors" : {"dijital_kanal" : ["hata_islem_sayisi", "islem_ortalama_tiklama", "cevrim_ici_sure", "basarili_giris_sayisi", "gezdigi_sayfa_sayisi"],
+                     "sosyal_medya" : ["begeni", "takip", "pozitif_yorum", "negatif_yorum", "sosyal_medya_reklamlari"]},
+        "observations" : ["memnuniyet", "tavsiye"],
+        "kpis" : ["capraz_satis", "devam_eden_musteri", "terk", "aktiflestirilmis_musteri", "geri_kazanilmis_musteri"],
+        "latent_connections" : [("cx", "dijital_kanal", "~"), ("cx", "sosyal_medya", "~")]
+    }
+
+
+    model = sem.build_model(model_description2, "random_model")
     print(model)
     result = sem.fit_model("../data/generated.csv", model, "random_model", verbose="FALSE")
     if result[0] == "OK":
