@@ -95,7 +95,7 @@ class SEM:
             {}
             {} = tryCatch(
             {{
-              {} <- sem({}, data, std.lv = FALSE, std.ov = FALSE,
+              {} <- sem({}, data, std.lv = TRUE, std.ov = TRUE,
                         control = list(maxit = 100000),
                         estimator = "ULS",
                         meanstructure = TRUE,
@@ -112,6 +112,8 @@ class SEM:
             self.robj.r(rscript)
             result = self.robj.globalenv["result_" + model_name]
             return result
+
+
         def evaluate(self, model_name):
             rscript = '''
             {} <- fitmeasures({}, c("npar", "chisq", "df", "cfi", "gfi", "rmsea", "srmr"))
@@ -126,6 +128,17 @@ class SEM:
                        "root_mean_square_of_approximation" : values[5],
                        "standardized_root_mean_square_residual" : values[6]}
             return metrics
+
+
+        def save_model_vis(self, model_name, file_name, file_type="pdf"):
+            rscript = '''
+                library("semPlot")
+                semPaths({}, "std", nCharNodes = 35, layout="tree",
+                    intercepts = FALSE, pastel = TRUE, residuals = FALSE, label.prop = 0.92, width = 40, height = 30,
+                    sizeMan = 7, sizeLat = 8, font = 4, fade=FALSE, reorder=FALSE, filetype="{}", filename="{}")
+            '''.format("fit_" + model_name, file_type, file_name)
+            self.robj.r(rscript)
+
 
     __instance = None
     def __init__(self):
@@ -155,6 +168,7 @@ if __name__ == "__main__":
     if result[0] == "OK":
         metrics = sem.evaluate("random_model")
         print(metrics)
+        sem.save_model_vis("random_model", "../models/random_model")
     else:
         print(result)
         print(result[0][0])
